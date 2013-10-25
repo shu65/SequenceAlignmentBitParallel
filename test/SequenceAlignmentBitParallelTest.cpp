@@ -57,7 +57,7 @@ TEST(EditDistanceBitParallelTest, CalculateEditDistance) {
   sequence_alignment_bit_parallel.BuildPeq(&str0[0], str0.size(), &str0_p_eq[0]);
 
   TestSequenceAlignmentBitParall::Score score = sequence_alignment_bit_parallel.CalculateAlignmentScore(
-      &str0_p_eq[0], &str1[0], str1.size());
+      &str0_p_eq[0], str0.size(), &str1[0], str1.size());
   EXPECT_EQ(2, score);
 }
 
