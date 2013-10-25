@@ -11,7 +11,7 @@
 #include <stdint.h>
 
 namespace pop_count {
-uint32_t PopCount64(uint64_t x);
+uint64_t PopCount64(uint64_t x);
 }
 
 #endif /* POPCOUNT_H_ */
