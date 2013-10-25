@@ -9,6 +9,7 @@
 #define SEQUENCEALIGNMENTBITPARALLEL_H_
 
 #include <cstdlib>
+#include <limits.h>
 #include <stdint.h>
 
 namespace sequence_alignment_bit_parallel {
@@ -27,9 +28,17 @@ public:
   Score CalculateAlignmentScore(Word *string0_p_eq, Char *string1, size_t string1_length);
 
 private:
+  static const Word kAllOneWord = UINT_MAX;
+  size_t GetDeltaVectorId(Score score) {
+    return score - min_score_gap_;
+  }
+  Word GetDeltaVMaxShift(Word Matches, Word DHneg5);
+
   Score match_;
   Score mismatch_;
   Score gap_;
+  Score max_score_gap_;
+  Score min_score_gap_;
 };
 
 } /* namespace sequence_alignment_bit_parallel */
