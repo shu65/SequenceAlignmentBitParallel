@@ -7,6 +7,8 @@
 
 #include <iostream>
 #include <vector>
+#include <assert.h>
+#include "PopCount.h"
 #include "SequenceAlignmentBitParallel.h"
 
 using namespace std;
@@ -14,83 +16,29 @@ using namespace std;
 namespace sequence_alignment_bit_parallel {
 
 SequenceAlignmentBitParallel::SequenceAlignmentBitParallel() :
-    match_(0), mismatch_(0), gap_(0) {
+    match_(0), mismatch_(0), gap_(0), min_score_gap_(gap_), max_score_gap_(
+        match_ - gap_) {
 }
 
 SequenceAlignmentBitParallel::~SequenceAlignmentBitParallel() {
 }
 
-int SequenceAlignmentBitParallel::SetScores(Score match, Score mismatch, Score gap) {
+int SequenceAlignmentBitParallel::SetScores(Score match, Score mismatch,
+    Score gap) {
   if (match > 0 && mismatch < 0 && gap < mismatch) {
     match_ = match;
     mismatch_ = mismatch;
     gap_ = gap;
-    max_score_gap_ = match_ - gap_;
     min_score_gap_ = gap_;
-
-    cout << " \t";
-    for (Score d_h = min_score_gap_; d_h <= max_score_gap_; ++d_h) {
-      cout << d_h << "\t";
-    }
-    cout << std::endl;
-    for (Score v = min_score_gap_; v <= max_score_gap_; ++v) {
-      cout << v << "\t";
-      for (Score h = min_score_gap_; h <= max_score_gap_; ++h) {
-        int formula_id = 3;
-        Score new_d_v = gap_;
-
-        Score tmp_d_v = 0;
-        tmp_d_v = mismatch_ - h;
-        if (tmp_d_v > new_d_v) {
-          new_d_v = tmp_d_v;
-          formula_id = 2;
-        }
-        tmp_d_v = v + gap - h;
-        if (tmp_d_v > new_d_v) {
-          new_d_v = tmp_d_v;
-          formula_id = 4;
-        }
-        cout << new_d_v + h - v << "(" << new_d_v << ")" << "\t";
-
-      }
-      cout << endl;
-    }
-
-    /*
-     cout << " \t";
-     for (Score d_h = min_d_h; d_h <= max_d_h; ++d_h) {
-     cout << d_h << "\t";
-     }
-     cout << std::endl;
-
-     for (Score d_v = min_d_v; d_v <= max_d_v; ++d_v) {
-     cout << d_v << "\t";
-     for (Score d_h = min_d_h; d_h <= max_d_h; ++d_h) {
-     int formula_id = 3;
-     Score new_d_v = gap_;
-
-     Score tmp_d_v = 0;
-     tmp_d_v = mismatch_ - d_h;
-     if (tmp_d_v > new_d_v) {
-     new_d_v = tmp_d_v;
-     formula_id = 2;
-     }
-     tmp_d_v = d_v + gap - d_h;
-     if (tmp_d_v > new_d_v) {
-     new_d_v = tmp_d_v;
-     formula_id = 4;
-     }
-     cout << formula_id << ")" << "\t";
-     }
-     cout << endl;
-     }
-     */
+    max_score_gap_ = match_ - gap_;
+    BuildOutputInputLists();
     return 0;
   }
   return 1;
 }
 
-void SequenceAlignmentBitParallel::BuildPeq(Char *string, size_t string_length, Word *p_eq) {
+void SequenceAlignmentBitParallel::BuildPeq(Char *string, size_t string_length,
+    Word *p_eq) {
   const Word w = 1;
   for (size_t i = 0; i < string_length; ++i) {
     Char c = string[i];
@@ -100,101 +48,239 @@ void SequenceAlignmentBitParallel::BuildPeq(Char *string, size_t string_length, 
 
 SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::CalculateAlignmentScore(
     Word *string0_p_eq, Char *string1, size_t string1_length) {
-
-  vector<Word> delta_v(max_score_gap_ - min_score_gap_, 0);
-  vector<Word> delta_h(max_score_gap_ - min_score_gap_, 0);
-  delta_h[GetDeltaVectorId(min_score_gap_)] = kAllOneWord;
-  for (size_t i = 0; i < string1_length; ++i) {
-    delta_v[GetDeltaVectorId(min_score_gap_)] = 1;
-    Word matches = string0_p_eq[string1[i]];
-    Word delta_v_max_shift = GetDeltaVMaxShift(matches, delta_h[GetDeltaVectorId(min_score_gap_)]);
-    Word remain_delta_h_min = delta_h[GetDeltaVectorId(min_score_gap_)] ^ (delta_v_max_shift >> 1);
-
-    Word INITpos6s = delta_h[GetDeltaVectorId(-4)] & (delta_v_max_shift | matches);
-    Word DVpos6shift = ((INITpos6s << 1) + remain_delta_h_min) ^ remain_delta_h_min;
-    Word DVpos6shiftNotMatch = DVpos6shift & !matches;
-
-    Word INITpos5s = (delta_h[GetDeltaVectorId(-3)] & (delta_v_max_shift | matches))
-        | (delta_h[GetDeltaVectorId(-4)] & DVpos6shiftNotMatch);
-    Word DVpos5shift = ((INITpos6s << 1) + remain_delta_h_min) ^ remain_delta_h_min;
-    Word DVpos5shiftNotMatch = DVpos5shift & !matches;
-
-    Word INITpos4s = (delta_h[GetDeltaVectorId(-2)] & (delta_v_max_shift | matches))
-        | (delta_h[GetDeltaVectorId(-3)] & DVpos6shiftNotMatch)
-        | (delta_h[GetDeltaVectorId(-4)] & DVpos5shiftNotMatch);
-    Word DVpos4shift = ((INITpos4s << 1) + remain_delta_h_min) ^ remain_delta_h_min;
-    Word DVpos4shiftNotMatch = DVpos4shift & !matches;
-
-    Word INITpos3s = (delta_h[GetDeltaVectorId(-1)] & (delta_v_max_shift | matches))
-        | (delta_h[GetDeltaVectorId(-2)] & DVpos6shiftNotMatch)
-        | (delta_h[GetDeltaVectorId(-3)] & DVpos5shiftNotMatch)
-        | (delta_h[GetDeltaVectorId(-4)] & DVpos4shiftNotMatch);
-    Word DVpos3shift = ((INITpos3s << 1) + remain_delta_h_min) ^ remain_delta_h_min;
-    Word DVpos3shiftNotMatch = DVpos4shift & !matches;
-
-    Word DVnot7to3shiftorMatch = ~((delta_v_max_shift | matches) | DVpos6shift | DVpos5shift
-        | DVpos4shift | DVpos3shift);
-    Word DVpos2shift = ((delta_h[GetDeltaVectorId(0)] & (delta_v_max_shift | matches))
-        | (delta_h[GetDeltaVectorId(-1)] & DVpos6shift)
-        | (delta_h[GetDeltaVectorId(-2)] & DVpos5shift)
-        | (delta_h[GetDeltaVectorId(-3)] & DVpos4shift)
-        | (delta_h[GetDeltaVectorId(-4)] & DVpos3shift)
-        | (delta_h[GetDeltaVectorId(-5)] & DVnot7to3shiftorMatch)) << 1;
-
-    Word DVpos1shift = ((delta_h[GetDeltaVectorId(1)] & (delta_v_max_shift | matches))
-        | (delta_h[GetDeltaVectorId(0)] & DVpos6shift)
-        | (delta_h[GetDeltaVectorId(-1)] & DVpos5shift)
-        | (delta_h[GetDeltaVectorId(-2)] & DVpos4shift)
-        | (delta_h[GetDeltaVectorId(-3)] & DVpos3shift)
-        | (delta_h[GetDeltaVectorId(-4)] & DVnot7to3shiftorMatch)) << 1;
-
-    Word DV0shift = ((delta_h[GetDeltaVectorId(2)] & (delta_v_max_shift | matches))
-        | (delta_h[GetDeltaVectorId(1)] & DVpos6shift)
-        | (delta_h[GetDeltaVectorId(0)] & DVpos5shift)
-        | (delta_h[GetDeltaVectorId(-1)] & DVpos4shift)
-        | (delta_h[GetDeltaVectorId(-2)] & DVpos3shift)
-        | (delta_h[GetDeltaVectorId(-3)] & DVnot7to3shiftorMatch)) << 1;
-
-    Word DVneg1shift = ((delta_h[GetDeltaVectorId(3)] & (delta_v_max_shift | matches))
-        | (delta_h[GetDeltaVectorId(2)] & DVpos6shift)
-        | (delta_h[GetDeltaVectorId(1)] & DVpos5shift)
-        | (delta_h[GetDeltaVectorId(0)] & DVpos4shift)
-        | (delta_h[GetDeltaVectorId(-1)] & DVpos3shift)
-        | (delta_h[GetDeltaVectorId(-2)] & DVnot7to3shiftorMatch)) << 1;
-
-    Word DVneg2shift = ((delta_h[GetDeltaVectorId(4)] & (delta_v_max_shift | matches))
-        | (delta_h[GetDeltaVectorId(3)] & DVpos6shift)
-        | (delta_h[GetDeltaVectorId(2)] & DVpos5shift)
-        | (delta_h[GetDeltaVectorId(1)] & DVpos4shift)
-        | (delta_h[GetDeltaVectorId(0)] & DVpos3shift)
-        | (delta_h[GetDeltaVectorId(-1)] & DVnot7to3shiftorMatch)) << 1;
-
-    Word DVneg3shift = ((delta_h[GetDeltaVectorId(5)] & (delta_v_max_shift | matches))
-        | (delta_h[GetDeltaVectorId(4)] & DVpos6shift)
-        | (delta_h[GetDeltaVectorId(3)] & DVpos5shift)
-        | (delta_h[GetDeltaVectorId(2)] & DVpos4shift)
-        | (delta_h[GetDeltaVectorId(1)] & DVpos3shift)
-        | (delta_h[GetDeltaVectorId(0)] & DVnot7to3shiftorMatch)) << 1;
-
-    Word DVneg4shift = ((delta_h[GetDeltaVectorId(6)] & (delta_v_max_shift | matches))
-        | (delta_h[GetDeltaVectorId(5)] & DVpos6shift)
-        | (delta_h[GetDeltaVectorId(4)] & DVpos5shift)
-        | (delta_h[GetDeltaVectorId(3)] & DVpos4shift)
-        | (delta_h[GetDeltaVectorId(2)] & DVpos3shift)
-        | (delta_h[GetDeltaVectorId(1)] & DVnot7to3shiftorMatch)) << 1;
-
-    Word DVneg5shift = kAllOneWord
-        ^ (delta_v_max_shift | DVpos6shift | DVpos5shift | DVpos4shift | DVpos3shift | DVpos2shift
-            | DVpos1shift | DV0shift | DVneg1shift | DVneg2shift | DVneg3shift | DVneg4shift);
-
+  size_t score_gap_vector_length = max_score_gap_ - min_score_gap_ + 1;
+  vector<Word> delta_v(score_gap_vector_length, 0);
+  vector<Word> delta_v_shift(score_gap_vector_length, 0);
+  vector<Word> delta_v_shift_relative_matches(score_gap_vector_length, 0);
+  vector<vector<Word> > delta_hs(2);
+  for (size_t i = 0; i < delta_hs.size(); ++i) {
+    delta_hs[i].resize(score_gap_vector_length, 0);
   }
-  return 0;
+  size_t delta_hs_read_id = 0;
+  size_t delta_hs_write_id = 1 - delta_hs_read_id;
+  delta_hs[delta_hs_read_id][GetScoreGapVectorId(min_score_gap_)] = kAllOneWord;
+  const size_t score_gap_min_id = 0;
+  const size_t score_gap_max_id = delta_hs[delta_hs_read_id].size() - 1;
+  Score min_score_in_zone_a = mismatch_ - gap_ + 1;
+  size_t score_gap_boundary_id = GetScoreGapVectorId(min_score_in_zone_a);
+  for (size_t i = 0; i < string1_length; ++i, delta_hs_read_id =
+      delta_hs_write_id, delta_hs_write_id = 1 - delta_hs_write_id) {
+    const vector<Word> &delta_h = delta_hs[delta_hs_read_id];
+#ifdef DEBUG
+    cout << i << ":\t";
+    assert(!PrintScoreGapVectors(delta_hs[delta_hs_read_id]));
+#endif
+    Word matches = string0_p_eq[string1[i]];
+    Word not_matches = !matches;
+    Word delta_v_max_shift = GetDeltaVMaxShift(matches,
+        delta_h[score_gap_min_id]);
+    delta_v[score_gap_max_id] = delta_v_max_shift << 1;
+    Word remain_delta_h_min = delta_h[score_gap_min_id]
+        ^ (delta_v_max_shift >> 1); // ここ右シフトであってる？
+    delta_v_shift_relative_matches[score_gap_max_id] = delta_v_max_shift
+        | matches;
+    Word delta_v_not_max_to_boundary_shift =
+        delta_v_shift_relative_matches[score_gap_max_id];
+    for (size_t output_score_id = score_gap_max_id;
+        output_score_id >= score_gap_boundary_id; --output_score_id) {
+      delta_v_shift[output_score_id] = GetDeltaVShiftInOtherZoneA(
+          output_score_id, remain_delta_h_min, delta_v_shift_relative_matches,
+          delta_h);
+      delta_v[output_score_id] = delta_v_shift[output_score_id] << 1;
+      delta_v_shift_relative_matches[output_score_id] =
+          delta_v_shift[score_gap_max_id] & not_matches;
+      delta_v_not_max_to_boundary_shift |= delta_v_shift[score_gap_max_id];
+    }
+    delta_v_not_max_to_boundary_shift = ~delta_v_not_max_to_boundary_shift;
+
+    for (size_t output_score_id = score_gap_boundary_id - 1;
+        output_score_id > score_gap_min_id; --output_score_id) {
+      delta_v_shift[output_score_id] = GetDeltaVShiftInZoenBC(output_score_id,
+          delta_v_shift, delta_h, delta_v_not_max_to_boundary_shift);
+      delta_v[output_score_id] = delta_v_shift[output_score_id] << 1;
+    }
+    delta_v_shift[score_gap_min_id] = GetDeltaVShiftInZoneD(score_gap_min_id,
+        score_gap_max_id, delta_v_shift);
+    delta_v[score_gap_min_id] = delta_v_shift[score_gap_min_id] << 1;
+
+    vector<Word> &new_delta_h = delta_hs[delta_hs_write_id];
+    for (size_t output_score_id = score_gap_min_id;
+        output_score_id <= score_gap_max_id; ++output_score_id) {
+      new_delta_h[output_score_id] = GetDeltaH(output_score_id, delta_v,
+          delta_h);
+    }
+  }
+#ifdef DEBUG
+    cout << string1_length << ":\t";
+    assert(!PrintScoreGapVectors(delta_hs[delta_hs_read_id]));
+#endif
+  return DecodeScore(string1_length, delta_hs[delta_hs_read_id]);
 }
 
-SequenceAlignmentBitParallel::Word SequenceAlignmentBitParallel::GetDeltaVMaxShift(Word matches,
-    Word delta_h_min) {
+void SequenceAlignmentBitParallel::BuildOutputInputLists() {
+  delta_v_input_pairs_lists_in_a_.clear();
+  delta_v_input_pairs_lists_in_b_.clear();
+  delta_v_input_delta_h_list_in_c_.clear();
+  delta_h_input_pairs_lists_.clear();
+
+  size_t score_gap_vector_length = max_score_gap_ - min_score_gap_ + 1;
+  delta_v_input_pairs_lists_in_a_.resize(score_gap_vector_length);
+  delta_v_input_pairs_lists_in_b_.resize(score_gap_vector_length);
+  delta_v_input_delta_h_list_in_c_.resize(score_gap_vector_length, 0);
+  delta_h_input_pairs_lists_.resize(score_gap_vector_length);
+  Score score_gap_min = gap_;
+  Score score_gap_boundary = mismatch_ - gap_;
+  Score min_score_in_zone_a = mismatch_ - gap_ + 1;
+#ifdef DEBUG
+  cout << " \t";
+  for (Score d_h = min_score_gap_; d_h <= max_score_gap_; ++d_h) {
+    cout << d_h << "\t";
+  }
+  cout << std::endl;
+#endif
+  for (Score delta_v = min_score_gap_; delta_v <= max_score_gap_; ++delta_v) {
+#ifdef DEBUG
+    cout << delta_v << "\t";
+#endif
+    for (Score delta_h = min_score_gap_; delta_h <= max_score_gap_; ++delta_h) {
+      Score output_delta_v = gap_;
+      Score tmp_d_v = 0;
+      tmp_d_v = mismatch_ - delta_h;
+      if (tmp_d_v > output_delta_v) {
+        output_delta_v = tmp_d_v;
+      }
+      tmp_d_v = delta_v + gap_ - delta_h;
+      if (tmp_d_v > output_delta_v) {
+        output_delta_v = tmp_d_v;
+      }
+      InputPair input_pair;
+      input_pair.delta_v_id = GetScoreGapVectorId(delta_v);
+      input_pair.delta_h_id = GetScoreGapVectorId(delta_h);
+
+      if (output_delta_v >= min_score_in_zone_a) {
+        delta_v_input_pairs_lists_in_a_[GetScoreGapVectorId(output_delta_v)].push_back(
+            input_pair);
+      } else if (output_delta_v != score_gap_min) {
+        if (delta_v > score_gap_boundary) {
+          delta_v_input_pairs_lists_in_b_[GetScoreGapVectorId(output_delta_v)].push_back(
+              input_pair);
+        } else {
+          delta_v_input_delta_h_list_in_c_[GetScoreGapVectorId(output_delta_v)] =
+              input_pair.delta_h_id;
+        }
+      }
+      Score output_delta_h = output_delta_v + delta_h - delta_v;
+      delta_h_input_pairs_lists_[GetScoreGapVectorId(output_delta_h)].push_back(
+          input_pair);
+#ifdef DEBUG
+      cout << output_delta_v << "(" << output_delta_h << ")" << "\t";
+#endif
+
+    }
+#ifdef DEBUG
+    cout << endl;
+#endif
+  }
+}
+
+SequenceAlignmentBitParallel::Word SequenceAlignmentBitParallel::GetDeltaVMaxShift(
+    Word matches, Word delta_h_min) {
   Word init_positions = delta_h_min & matches;
   return ((init_positions + delta_h_min) ^ delta_h_min) ^ init_positions;
 }
 
-} /* namespace sequence_alignment_bit_parallel */
+SequenceAlignmentBitParallel::Word SequenceAlignmentBitParallel::GetDeltaVShiftInOtherZoneA(
+    const Score output_delta_v_id, const Word remain_delta_h_min,
+    const vector<Word> &delta_v_shift_relative_matches,
+    const vector<Word> &delta_h) {
+  Word init_positions = 0;
+  vector<InputPair> &inputs = delta_v_input_pairs_lists_in_a_[output_delta_v_id];
+  for (vector<InputPair>::const_iterator inputs_it = inputs.begin();
+      inputs_it != inputs.end(); ++inputs_it) {
+    init_positions |= delta_h[inputs_it->delta_h_id]
+        & delta_v_shift_relative_matches[inputs_it->delta_v_id];
+  }
+  return ((init_positions << 1) + remain_delta_h_min) ^ remain_delta_h_min;
+}
+
+SequenceAlignmentBitParallel::Word SequenceAlignmentBitParallel::GetDeltaVShiftInZoenBC(
+    Score output_delta_v_id, const vector<Word>& delta_v_shift,
+    const vector<Word>& delta_h, Word delta_v_not_max_to_boundary_shift) {
+  Word init_positions = 0;
+  const vector<InputPair> &inputs =
+      delta_v_input_pairs_lists_in_b_[output_delta_v_id];
+  for (vector<InputPair>::const_iterator inputs_it = inputs.begin();
+      inputs_it != inputs.end(); ++inputs_it) {
+    init_positions |= delta_h[inputs_it->delta_h_id]
+        & delta_v_shift[inputs_it->delta_v_id];
+  }
+  init_positions |= delta_v_input_delta_h_list_in_c_[output_delta_v_id]
+      & delta_v_not_max_to_boundary_shift;
+  return init_positions << 1;
+}
+
+SequenceAlignmentBitParallel::Word SequenceAlignmentBitParallel::GetDeltaVShiftInZoneD(
+    const size_t score_gap_min_id, const size_t score_gap_max_id,
+    const vector<Word>& delta_v_shift) {
+  Word not_min_positions = 0;
+  for (size_t i = score_gap_max_id; i > score_gap_min_id; --i) {
+    not_min_positions |= delta_v_shift[i];
+  }
+  return kAllOneWord ^ not_min_positions;
+}
+
+SequenceAlignmentBitParallel::Word SequenceAlignmentBitParallel::GetDeltaH(
+    Score output_delta_h_id, const std::vector<Word>& delta_v,
+    const std::vector<Word>& delta_h) {
+  Word positions = 0;
+  vector<InputPair> &inputs = delta_h_input_pairs_lists_[output_delta_h_id];
+  for (vector<InputPair>::const_iterator inputs_it = inputs.begin();
+      inputs_it != inputs.end(); ++inputs_it) {
+    positions |= delta_h[inputs_it->delta_h_id]
+        & delta_v[inputs_it->delta_v_id];
+  }
+  return positions;
+}
+
+SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::DecodeScore(
+    size_t string1_length, const std::vector<Word>& delta_h) {
+  Score sum_score = string1_length * gap_;
+  Score current_score = min_score_gap_;
+  for (std::vector<Word>::const_iterator delta_h_it = delta_h.begin();
+      delta_h_it != delta_h.end(); ++delta_h_it, ++current_score) {
+    sum_score += pop_count::PopCount64(*delta_h_it) * current_score;
+  }
+  return sum_score;
+}
+
+int SequenceAlignmentBitParallel::PrintScoreGapVectors(const std::vector<Word>& score_gap_vectors) {
+  Word setted_positions = 0;
+  size_t word_bit_length = 64;
+  vector<Score> decoded_scores(word_bit_length,0);
+  Score current_score = min_score_gap_;
+  for (std::vector<Word>::const_iterator delta_h_it = score_gap_vectors.begin();
+      delta_h_it != score_gap_vectors.end(); ++delta_h_it, ++current_score) {
+    if ((setted_positions & *delta_h_it) != 0) {
+      return 1;
+    }
+    setted_positions != *delta_h_it;
+    Word tmp_vector = *delta_h_it;
+    for (size_t i = 0; i < word_bit_length; ++i) {
+      if (tmp_vector&1) {
+        decoded_scores[i] = current_score;
+      }
+    }
+  }
+  if (pop_count::PopCount64(setted_positions) == word_bit_length) {
+    return 1;
+  }
+  for (size_t i = 0; i < word_bit_length; ++i) {
+    cout << decoded_scores[i] << "\t";
+  }
+  cout << endl;
+
+  return 0;
+}
+
+}
+/* namespace sequence_alignment_bit_parallel */
