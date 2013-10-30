@@ -5,6 +5,7 @@ SequenceAlignmentBitParallel calculates the score of global alignment by using B
 Status
 ----------
 [![Build Status](https://travis-ci.org/shu65/SequenceAlignmentBitParallel.png?branch=master)](https://travis-ci.org/shu65/SequenceAlignmentBitParallel)
+[![Coverage Status](https://coveralls.io/repos/shu65/EclipseCdtWithWafSample/badge.png)](https://coveralls.io/r/shu65/EclipseCdtWithWafSample)
 [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/shu65/sequencealignmentbitparallel/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
 
 Build and Run Test
