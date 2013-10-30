@@ -47,7 +47,7 @@ void SequenceAlignmentBitParallel::BuildPeq(Char *string, size_t string_length,
 }
 
 SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::CalculateAlignmentScore(
-    Word *string0_p_eq, Char *string1, size_t string1_length) {
+    Word *string0_p_eq, size_t string0_length, Char *string1, size_t string1_length) {
   size_t score_gap_vector_length = max_score_gap_ - min_score_gap_ + 1;
   vector<Word> delta_v(score_gap_vector_length, 0);
   vector<Word> delta_v_shift(score_gap_vector_length, 0);
@@ -68,20 +68,21 @@ SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::CalculateAlign
     const vector<Word> &delta_h = delta_hs[delta_hs_read_id];
 #ifdef DEBUG
     cout << i << ":\t";
-    assert(!PrintScoreGapVectors(delta_hs[delta_hs_read_id]));
+    assert(!PrintScoreGapVectors(string0_length, delta_hs[delta_hs_read_id]));
 #endif
     Word matches = string0_p_eq[string1[i]];
-    Word not_matches = !matches;
-    Word delta_v_max_shift = GetDeltaVMaxShift(matches,
+    Word not_matches = ~matches;
+    delta_v_shift[score_gap_max_id] = GetDeltaVMaxShift(matches,
         delta_h[score_gap_min_id]);
-    delta_v[score_gap_max_id] = delta_v_max_shift << 1;
+    delta_v[score_gap_max_id] = delta_v_shift[score_gap_max_id] << 1;
     Word remain_delta_h_min = delta_h[score_gap_min_id]
-        ^ (delta_v_max_shift >> 1); // ここ右シフトであってる？
-    delta_v_shift_relative_matches[score_gap_max_id] = delta_v_max_shift
+        ^ (delta_v_shift[score_gap_max_id] >> 1);
+    delta_v_shift_relative_matches[score_gap_max_id] = delta_v_shift[score_gap_max_id]
         | matches;
     Word delta_v_not_max_to_boundary_shift =
         delta_v_shift_relative_matches[score_gap_max_id];
-    for (size_t output_score_id = score_gap_max_id;
+
+    for (size_t output_score_id = score_gap_max_id - 1;
         output_score_id >= score_gap_boundary_id; --output_score_id) {
       delta_v_shift[output_score_id] = GetDeltaVShiftInOtherZoneA(
           output_score_id, remain_delta_h_min, delta_v_shift_relative_matches,
@@ -103,18 +104,22 @@ SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::CalculateAlign
         score_gap_max_id, delta_v_shift);
     delta_v[score_gap_min_id] = delta_v_shift[score_gap_min_id] << 1;
 
+#ifdef DEBUG
+    cout << "v:\t";
+    assert(!PrintScoreGapVectors(string0_length, delta_v_shift));
+#endif
     vector<Word> &new_delta_h = delta_hs[delta_hs_write_id];
     for (size_t output_score_id = score_gap_min_id;
         output_score_id <= score_gap_max_id; ++output_score_id) {
-      new_delta_h[output_score_id] = GetDeltaH(output_score_id, delta_v,
+      new_delta_h[output_score_id] = GetDeltaH(output_score_id, delta_v_shift,
           delta_h);
     }
   }
 #ifdef DEBUG
     cout << string1_length << ":\t";
-    assert(!PrintScoreGapVectors(delta_hs[delta_hs_read_id]));
+    assert(!PrintScoreGapVectors(string0_length, delta_hs[delta_hs_read_id]));
 #endif
-  return DecodeScore(string1_length, delta_hs[delta_hs_read_id]);
+  return DecodeScore(string0_length, string1_length, delta_hs[delta_hs_read_id]);
 }
 
 void SequenceAlignmentBitParallel::BuildOutputInputLists() {
@@ -242,39 +247,48 @@ SequenceAlignmentBitParallel::Word SequenceAlignmentBitParallel::GetDeltaH(
   return positions;
 }
 
-SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::DecodeScore(
+SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::DecodeScore(size_t string0_length,
     size_t string1_length, const std::vector<Word>& delta_h) {
   Score sum_score = string1_length * gap_;
   Score current_score = min_score_gap_;
+  Word mask = kAllOneWord;
+  if (kWordBitLength > string0_length) {
+    mask = (1 << string0_length) - 1;
+  }
   for (std::vector<Word>::const_iterator delta_h_it = delta_h.begin();
       delta_h_it != delta_h.end(); ++delta_h_it, ++current_score) {
-    sum_score += pop_count::PopCount64(*delta_h_it) * current_score;
+    sum_score += pop_count::PopCount64(*delta_h_it&mask) * current_score;
   }
   return sum_score;
 }
 
-int SequenceAlignmentBitParallel::PrintScoreGapVectors(const std::vector<Word>& score_gap_vectors) {
+int SequenceAlignmentBitParallel::PrintScoreGapVectors(size_t string0_length, const std::vector<Word>& score_gap_vectors) {
   Word setted_positions = 0;
-  size_t word_bit_length = 64;
-  vector<Score> decoded_scores(word_bit_length,0);
+  vector<Score> decoded_scores(kWordBitLength,0);
   Score current_score = min_score_gap_;
-  for (std::vector<Word>::const_iterator delta_h_it = score_gap_vectors.begin();
-      delta_h_it != score_gap_vectors.end(); ++delta_h_it, ++current_score) {
-    if ((setted_positions & *delta_h_it) != 0) {
+  Word mask = kAllOneWord;
+  if (kWordBitLength > string0_length) {
+    mask = (1 << string0_length) - 1;
+  }
+  for (std::vector<Word>::const_iterator score_gap_vectors_it = score_gap_vectors.begin();
+      score_gap_vectors_it != score_gap_vectors.end(); ++score_gap_vectors_it, ++current_score) {
+    if ((setted_positions & *score_gap_vectors_it) != 0) {
       return 1;
     }
-    setted_positions != *delta_h_it;
-    Word tmp_vector = *delta_h_it;
-    for (size_t i = 0; i < word_bit_length; ++i) {
+    setted_positions |= *score_gap_vectors_it&mask;
+    Word tmp_vector = *score_gap_vectors_it;
+    for (size_t i = 0; i < kWordBitLength; ++i, tmp_vector >>= 1) {
       if (tmp_vector&1) {
         decoded_scores[i] = current_score;
       }
     }
   }
-  if (pop_count::PopCount64(setted_positions) == word_bit_length) {
+
+  if (setted_positions != mask) {
     return 1;
   }
-  for (size_t i = 0; i < word_bit_length; ++i) {
+
+  for (size_t i = 0; i < kWordBitLength; ++i) {
     cout << decoded_scores[i] << "\t";
   }
   cout << endl;

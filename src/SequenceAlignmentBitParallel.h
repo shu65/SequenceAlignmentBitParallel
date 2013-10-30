@@ -20,12 +20,14 @@ public:
   typedef uint8_t Char;
   typedef uint64_t Word;
 
+  static const size_t kWordBitLength = 64;
+
   SequenceAlignmentBitParallel();
   virtual ~SequenceAlignmentBitParallel();
 
   int SetScores(Score match, Score mismatch, Score gap);
   void BuildPeq(Char *string, size_t string_length, Word *p_eq);
-  Score CalculateAlignmentScore(Word *string0_p_eq, Char *string1,
+  Score CalculateAlignmentScore(Word *string0_p_eq, size_t string0_length, Char *string1,
       size_t string1_length);
 
 private:
@@ -50,9 +52,9 @@ private:
       const std::vector<Word>& delta_v_shift);
 
   Word GetDeltaH(Score output_delta_v_id, const std::vector<Word>& delta_v_shift, const std::vector<Word>& delta_h);
-  Score DecodeScore(size_t string1_length, const std::vector<Word>& delta_h);
+  Score DecodeScore(size_t string0_length, size_t string1_length, const std::vector<Word>& delta_h);
 
-  int PrintScoreGapVectors(const std::vector<Word>& score_gap_vectors);
+  int PrintScoreGapVectors(size_t string0_length, const std::vector<Word>& score_gap_vectors);
 
   Score match_;
   Score mismatch_;
