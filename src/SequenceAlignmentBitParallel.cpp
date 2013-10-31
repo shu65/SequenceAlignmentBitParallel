@@ -101,9 +101,10 @@ SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::CalculateAlign
 #endif
 		Word matches = string0_p_eq[string1[i]];
 		Word not_matches = ~matches;
-
+		Word not_delta_v_shift_min_positions = 0;
 		delta_v_shift[score_gap_max_id] = GetDeltaVMaxShift(matches,
 				delta_h[score_gap_min_id]);
+		not_delta_v_shift_min_positions |= delta_v_shift[score_gap_max_id];
 		Word remain_delta_h_min = delta_h[score_gap_min_id]
 				^ (delta_v_shift[score_gap_max_id] >> 1);
 		delta_v_shift_relative_matches[score_gap_max_id] =
@@ -116,6 +117,7 @@ SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::CalculateAlign
 			delta_v_shift[output_score_id] = GetDeltaVShiftInOtherZoneA(
 					output_score_id, remain_delta_h_min,
 					delta_v_shift_relative_matches, delta_h);
+			not_delta_v_shift_min_positions |= delta_v_shift[output_score_id];
 			delta_v_shift_relative_matches[output_score_id] =
 					delta_v_shift[output_score_id] & not_matches;
 			delta_v_not_max_to_boundary_shift |= delta_v_shift[output_score_id];
@@ -127,9 +129,10 @@ SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::CalculateAlign
 			delta_v_shift[output_score_id] = GetDeltaVShiftInZoenBC(
 					output_score_id, delta_v_shift_relative_matches, delta_h,
 					delta_v_not_max_to_boundary_shift);
+			not_delta_v_shift_min_positions |= delta_v_shift[output_score_id];
 		}
 		delta_v_shift[score_gap_min_id] = GetDeltaVShiftInZoneD(
-				score_gap_min_id, score_gap_max_id, delta_v_shift);
+				not_delta_v_shift_min_positions);
 
 #ifdef DEBUG
 		//cout << "v:\t";
@@ -269,13 +272,8 @@ SequenceAlignmentBitParallel::Word SequenceAlignmentBitParallel::GetDeltaVShiftI
 }
 
 SequenceAlignmentBitParallel::Word SequenceAlignmentBitParallel::GetDeltaVShiftInZoneD(
-		const size_t score_gap_min_id, const size_t score_gap_max_id,
-		const vector<Word>& delta_v_shift) {
-	Word not_min_positions = 0;
-	for (size_t i = score_gap_max_id; i > score_gap_min_id; --i) {
-		not_min_positions |= delta_v_shift[i];
-	}
-	return kAllOneWord ^ not_min_positions;
+		Word not_delta_v_shift_min_positions) {
+	return kAllOneWord ^ not_delta_v_shift_min_positions;
 }
 
 SequenceAlignmentBitParallel::Word SequenceAlignmentBitParallel::GetDeltaH(
