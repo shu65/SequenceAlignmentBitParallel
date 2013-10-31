@@ -111,7 +111,6 @@ SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::CalculateAlign
 		Word delta_v_not_max_to_boundary_shift =
 				delta_v_shift_relative_matches[score_gap_max_id];
 
-
 		for (size_t output_score_id = score_gap_max_id - 1;
 				output_score_id >= score_gap_boundary_id; --output_score_id) {
 			delta_v_shift[output_score_id] = GetDeltaVShiftInOtherZoneA(
@@ -137,16 +136,21 @@ SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::CalculateAlign
 		//assert(!PrintScoreGapVectors(string0_length, delta_v_shift));
 #endif
 		vector<Word> &new_delta_h = delta_hs[delta_hs_write_id];
+
 		for (size_t i = score_gap_min_id; i < score_gap_max_id; ++i) {
 			delta_h_relative_matches[i] = delta_h[i] & not_matches;
 		}
 		delta_h_relative_matches[score_gap_max_id] = delta_h[score_gap_max_id]
 				| matches;
-		for (size_t output_score_id = score_gap_min_id;
+
+		Word not_delta_h_min_positions = 0;
+		for (size_t output_score_id = score_gap_min_id + 1;
 				output_score_id <= score_gap_max_id; ++output_score_id) {
 			new_delta_h[output_score_id] = GetDeltaH(output_score_id,
 					delta_v_shift, delta_h_relative_matches);
+			not_delta_h_min_positions |= new_delta_h[output_score_id];
 		}
+		new_delta_h[score_gap_min_id] = kAllOneWord ^ not_delta_h_min_positions;
 	}
 #ifdef DEBUG
 	cout << string1_length << ":\t";
