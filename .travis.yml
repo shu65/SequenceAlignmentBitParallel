@@ -16,7 +16,7 @@ install:
  - sudo pip install cpp-coveralls --use-mirrors
  
 script:
-  - g++ -fprofile-arcs -ftest-coverage src/PopCount.cpp src/SequenceAlignmentBitParallel.cpp test/SequenceAlignmentBitParallelTest.cpp -lgtest -lgtest_main -lpthread -o SequenceAlignmentBitParallel_test
+  - g++ -fprofile-arcs -ftest-coverage src/pop_count/PopCount.cpp src/SequenceAlignmentBitParallel.cpp test/SequenceAlignmentBitParallelTest.cpp -lgtest -lgtest_main -lpthread -o SequenceAlignmentBitParallel_test
   - ./SequenceAlignmentBitParallel_test
 
 after_success:

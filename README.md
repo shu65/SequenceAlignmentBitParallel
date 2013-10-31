@@ -11,7 +11,7 @@ Status
 Build and Run Test
 ------------------
     cd SequenceAlignmentBitParallel/
-    g++ src/PopCount.cpp src/SequenceAlignmentBitParallel.cpp test/SequenceAlignmentBitParallelTest.cpp -lgtest -lgtest_main -lpthread -o SequenceAlignmentBitParallel_test
+    g++ src/pop_count/PopCount.cpp src/SequenceAlignmentBitParallel.cpp test/SequenceAlignmentBitParallelTest.cpp -lgtest -lgtest_main -lpthread -o SequenceAlignmentBitParallel_test
     ./SequenceAlignmentBitParallel_test
 
 Reference
