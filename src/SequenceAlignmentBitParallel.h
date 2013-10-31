@@ -78,14 +78,19 @@ private:
 			Word delta_v_not_max_to_boundary_shift);
 	Word GetDeltaVShiftInZoneD(Word not_delta_v_min_positions);
 
-	Word GetDeltaH(Score output_delta_v_id,
+	Word GetDeltaHInNotZoneD(Score output_delta_v_id,
 			const std::vector<Word>& delta_v_shift,
 			const std::vector<Word>& delta_h);
+
+	Word GetDeltaHInZoneD(
+			Word not_delta_h_min_positions);
+
 	Score DecodeScore(size_t string0_length, size_t string1_length,
 			const std::vector<Word>& delta_h);
 
 	int PrintScoreGapVectors(size_t string0_length,
 			const std::vector<Word>& score_gap_vectors);
+
 
 	Score match_;
 	Score mismatch_;
