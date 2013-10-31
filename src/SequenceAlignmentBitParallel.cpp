@@ -76,22 +76,22 @@ void SequenceAlignmentBitParallel::BuildPeq(Char *string, size_t string_length,
 SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::CalculateAlignmentScore(
 		Word *string0_p_eq, size_t string0_length, Char *string1,
 		size_t string1_length) {
-	size_t score_gap_vector_length = max_score_gap_ - min_score_gap_ + 1;
+	const size_t score_gap_min_id = GetScoreGapVectorId(min_score_gap_);
+	const size_t score_gap_max_id = GetScoreGapVectorId(max_score_gap_);
+	const Score min_score_in_zone_a = mismatch_ - gap_ + 1;
+	const size_t score_gap_boundary_id = GetScoreGapVectorId(
+			min_score_in_zone_a);
+	const size_t score_gap_vector_length = max_score_gap_ - min_score_gap_ + 1;
 	vector<Word> delta_v_shift(score_gap_vector_length, 0);
 	vector<Word> delta_v_shift_relative_matches(score_gap_vector_length, 0);
 	vector<vector<Word> > delta_hs(2);
-	vector<Word> delta_h_relative_matches(score_gap_vector_length, 0);
 	for (size_t i = 0; i < delta_hs.size(); ++i) {
 		delta_hs[i].resize(score_gap_vector_length, 0);
 	}
+	vector<Word> delta_h_relative_matches(score_gap_vector_length, 0);
 	size_t delta_hs_read_id = 0;
 	size_t delta_hs_write_id = 1 - delta_hs_read_id;
-	delta_hs[delta_hs_read_id][GetScoreGapVectorId(min_score_gap_)] =
-			kAllOneWord;
-	const size_t score_gap_min_id = 0;
-	const size_t score_gap_max_id = delta_hs[delta_hs_read_id].size() - 1;
-	Score min_score_in_zone_a = mismatch_ - gap_ + 1;
-	size_t score_gap_boundary_id = GetScoreGapVectorId(min_score_in_zone_a);
+	delta_hs[delta_hs_read_id][min_score_gap_] = kAllOneWord;
 	for (size_t i = 0; i < string1_length; ++i, delta_hs_read_id =
 			delta_hs_write_id, delta_hs_write_id = 1 - delta_hs_write_id) {
 		const vector<Word> &delta_h = delta_hs[delta_hs_read_id];
@@ -101,6 +101,7 @@ SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::CalculateAlign
 #endif
 		Word matches = string0_p_eq[string1[i]];
 		Word not_matches = ~matches;
+
 		delta_v_shift[score_gap_max_id] = GetDeltaVMaxShift(matches,
 				delta_h[score_gap_min_id]);
 		Word remain_delta_h_min = delta_h[score_gap_min_id]
@@ -109,6 +110,7 @@ SequenceAlignmentBitParallel::Score SequenceAlignmentBitParallel::CalculateAlign
 				delta_v_shift[score_gap_max_id] | matches;
 		Word delta_v_not_max_to_boundary_shift =
 				delta_v_shift_relative_matches[score_gap_max_id];
+
 
 		for (size_t output_score_id = score_gap_max_id - 1;
 				output_score_id >= score_gap_boundary_id; --output_score_id) {
