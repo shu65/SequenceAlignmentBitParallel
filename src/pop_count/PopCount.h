@@ -37,8 +37,10 @@
 
 #include <stdint.h>
 
+namespace sequence_alignment_bit_parallel {
 namespace pop_count {
 uint64_t PopCount64(uint64_t x);
+}
 }
 
 #endif /* POPCOUNT_H_ */
